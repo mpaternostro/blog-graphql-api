@@ -1,0 +1,25 @@
+{
+  "name": "blog-rest-api",
+  "version": "1.0.0",
+  "description": "Este proyecto está basado en el proyecto API REST del [curso de Maximilian Schwarzmüller para Node.js](https://www.udemy.com/course/nodejs-the-complete-guide/).",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "start": "nodemon app.js"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/mpaternostro/blog-rest-api.git"
+  },
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/mpaternostro/blog-rest-api/issues"
+  },
+  "homepage": "https://github.com/mpaternostro/blog-rest-api#readme",
+  "dependencies": {
+    "body-parser": "^1.19.0",
+    "express": "^4.17.1",
+    "nodemon": "^2.0.7"
+  }
+}
