@@ -4,6 +4,7 @@ const express = require("express");
 const mongoose = require("mongoose");
 
 const feedRoutes = require("./routes/feed");
+const { handleUnprocessableEntityError, handleServerError } = require("./controllers/error");
 
 const PORT = 8080;
 
@@ -19,6 +20,9 @@ app.use((req, res, next) => {
 });
 
 app.use("/feed", feedRoutes);
+
+app.use(handleUnprocessableEntityError);
+app.use(handleServerError);
 
 mongoose
   .connect(process.env.MONGO_DB_URI, {

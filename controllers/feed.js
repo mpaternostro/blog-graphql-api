@@ -1,4 +1,6 @@
 const { validationResult } = require("express-validator");
+const ServerError = require("../errors/server-error");
+const UnprocessableEntityError = require("../errors/unprocessable-entity-error");
 
 const Post = require("../models/Post");
 
@@ -22,9 +24,9 @@ exports.getPosts = (req, res, next) => {
 exports.createPost = async (req, res, next) => {
   const errors = validationResult(req);
   if (!errors.isEmpty()) {
-    res
-      .status(422)
-      .json({ message: "Validation failed, entered data is incorrect.", errors: errors.array() });
+    next(
+      new UnprocessableEntityError("Validation failed, entered data is incorrect.", errors.array())
+    );
   } else {
     const { title, content } = req.body;
     const post = new Post({
@@ -42,7 +44,7 @@ exports.createPost = async (req, res, next) => {
         post,
       });
     } catch (error) {
-      console.error(error);
+      next(new ServerError(error.message));
     }
   }
 };
