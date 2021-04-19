@@ -1,24 +1,36 @@
 const { validationResult } = require("express-validator");
 const ServerError = require("../errors/server-error");
+const ResourceNotFoundError = require("../errors/resource-not-found");
 const UnprocessableEntityError = require("../errors/unprocessable-entity-error");
 
 const Post = require("../models/Post");
 
-exports.getPosts = (req, res, next) => {
-  res.status(200).json({
-    posts: [
-      {
-        _id: "1",
-        title: "first post",
-        content: "this is the first post",
-        creator: {
-          name: "Charly",
-        },
-        imageUrl: "images/1617465920087-sword-of-destiny.jpeg",
-        createdAt: new Date(),
-      },
-    ],
-  });
+exports.getPosts = async (req, res, next) => {
+  try {
+    const posts = await Post.find();
+    res.status(200).json({
+      message: "Posts fetched succesfully.",
+      posts,
+    });
+  } catch (error) {
+    next(new ServerError(error.message));
+  }
+};
+
+exports.getPost = async (req, res, next) => {
+  const { postId } = req.params;
+  try {
+    const post = await Post.findById(postId);
+    if (!post) {
+      next(new ResourceNotFoundError("Post not found."));
+    }
+    res.status(200).json({
+      message: "Post fetched succesfully.",
+      post,
+    });
+  } catch (error) {
+    next(new ServerError(error.message));
+  }
 };
 
 exports.createPost = async (req, res, next) => {

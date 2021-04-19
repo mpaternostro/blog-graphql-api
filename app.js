@@ -1,16 +1,23 @@
 require("dotenv").config();
 
 const express = require("express");
+const path = require("path");
+
 const mongoose = require("mongoose");
 
 const feedRoutes = require("./routes/feed");
-const { handleUnprocessableEntityError, handleServerError } = require("./controllers/error");
+const {
+  handleResourceNotFoundError,
+  handleUnprocessableEntityError,
+  handleServerError,
+} = require("./controllers/error");
 
 const PORT = 8080;
 
 const app = express();
 
 app.use(express.json());
+app.use("/images", express.static(path.join(__dirname, "images")));
 
 app.use((req, res, next) => {
   res.setHeader("Access-Control-Allow-Origin", "*");
@@ -23,6 +30,7 @@ app.use("/feed", feedRoutes);
 
 app.use(handleUnprocessableEntityError);
 app.use(handleServerError);
+app.use(handleResourceNotFoundError);
 
 mongoose
   .connect(process.env.MONGO_DB_URI, {
