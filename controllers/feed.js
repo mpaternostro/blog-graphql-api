@@ -41,22 +41,27 @@ exports.createPost = async (req, res, next) => {
     );
   } else {
     const { title, content } = req.body;
-    const post = new Post({
-      title,
-      content,
-      imageUrl: "images/1617465920087-sword-of-destiny.jpeg",
-      creator: {
-        name: "Charly",
-      },
-    });
-    try {
-      await post.save();
-      res.status(201).json({
-        message: "Post created successfully!",
-        post,
+    if (!req.file) {
+      next(new UnprocessableEntityError("Image not provided."));
+    } else {
+      const imageUrl = req.file.path.replace("\\", "/");
+      const post = new Post({
+        title,
+        content,
+        imageUrl,
+        creator: {
+          name: "Charly",
+        },
       });
-    } catch (error) {
-      next(new ServerError(error.message));
+      try {
+        await post.save();
+        res.status(201).json({
+          message: "Post created successfully!",
+          post,
+        });
+      } catch (error) {
+        next(new ServerError(error.message));
+      }
     }
   }
 };
