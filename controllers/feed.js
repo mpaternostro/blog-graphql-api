@@ -6,15 +6,27 @@ const UnprocessableEntityError = require("../errors/unprocessable-entity-error")
 const Post = require("../models/Post");
 const clearImage = require("../utils/clearImage");
 
+const { POSTS_PER_PAGE } = require("../constants");
+
 exports.getPosts = async (req, res, next) => {
+  const page = req.query.page || 1;
+  let totalItems;
   try {
-    const posts = await Post.find();
-    res.status(200).json({
+    totalItems = await Post.countDocuments();
+  } catch (error) {
+    return next(new ServerError(error.message));
+  }
+  try {
+    const posts = await Post.find()
+      .skip(POSTS_PER_PAGE * (page - 1))
+      .limit(POSTS_PER_PAGE);
+    return res.status(200).json({
       message: "Posts fetched succesfully.",
       posts,
+      totalItems,
     });
   } catch (error) {
-    next(new ServerError(error.message));
+    return next(new ServerError(error.message));
   }
 };
 
