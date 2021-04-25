@@ -3,8 +3,7 @@ class ServerError extends Error {
    * @param {String} message
    */
   constructor(message) {
-    super();
-    this.message = message;
+    super(message);
     this.code = 500;
   }
 }

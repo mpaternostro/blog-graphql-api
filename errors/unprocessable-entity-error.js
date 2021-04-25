@@ -4,8 +4,7 @@ class UnprocessableEntityError extends Error {
    * @param {Array} errorList
    */
   constructor(message, errorList) {
-    super();
-    this.message = message;
+    super(message);
     this.code = 422;
     this.errorList = errorList;
   }

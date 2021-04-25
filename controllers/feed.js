@@ -4,6 +4,7 @@ const ResourceNotFoundError = require("../errors/resource-not-found");
 const UnprocessableEntityError = require("../errors/unprocessable-entity-error");
 
 const Post = require("../models/Post");
+const clearImage = require("../utils/clearImage");
 
 exports.getPosts = async (req, res, next) => {
   try {
@@ -63,5 +64,69 @@ exports.createPost = async (req, res, next) => {
         next(new ServerError(error.message));
       }
     }
+  }
+};
+
+exports.updatePost = async (req, res, next) => {
+  const errors = validationResult(req);
+  if (!errors.isEmpty()) {
+    return next(
+      new UnprocessableEntityError("Validation failed, entered data is incorrect.", errors.array())
+    );
+  }
+  const { postId } = req.params;
+  const { title, content } = req.body;
+  let post;
+  try {
+    post = await Post.findById(postId);
+  } catch (error) {
+    return next(new ServerError(error.message));
+  }
+  if (!post) {
+    return next(new ResourceNotFoundError("Post not found."));
+  }
+  post.title = title;
+  post.content = content;
+  if (req.file) {
+    try {
+      await clearImage(post.imageUrl);
+    } catch (error) {
+      return next(new ServerError(error.message));
+    }
+    post.imageUrl = req.file.path.replace("\\", "/");
+  }
+  if (!post.imageUrl) {
+    return next(new UnprocessableEntityError("Image not provided.", errors.array()));
+  }
+  try {
+    await post.save();
+    return res.status(200).json({
+      message: "Post updated successfully!",
+      post,
+    });
+  } catch (error) {
+    return next(new ServerError(error.message));
+  }
+};
+
+exports.deletePost = async (req, res, next) => {
+  const { postId } = req.params;
+  let post;
+  try {
+    post = await Post.findById(postId);
+  } catch (error) {
+    return next(new ServerError(error.message));
+  }
+  if (!post) {
+    return next(new ResourceNotFoundError("Post not found."));
+  }
+  try {
+    await clearImage(post.imageUrl);
+    await post.delete();
+    return res.status(200).json({
+      message: "Post deleted successfully!",
+    });
+  } catch (error) {
+    return next(new ServerError(error.message));
   }
 };
