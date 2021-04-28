@@ -8,6 +8,7 @@ const multer = require("multer");
 const { v4: uuidv4 } = require("uuid");
 
 const feedRoutes = require("./routes/feed");
+const authRoutes = require("./routes/auth");
 const {
   handleResourceNotFoundError,
   handleUnprocessableEntityError,
@@ -45,6 +46,7 @@ function fileFilter(req, file, cb) {
   }
 }
 
+app.use(express.json());
 app.use(multer({ storage, fileFilter }).single("image"));
 app.use("/images", express.static(path.join(__dirname, "images")));
 
@@ -56,6 +58,7 @@ app.use((req, res, next) => {
 });
 
 app.use("/feed", feedRoutes);
+app.use("/auth", authRoutes);
 
 app.use(handleUnprocessableEntityError);
 app.use(handleServerError);
