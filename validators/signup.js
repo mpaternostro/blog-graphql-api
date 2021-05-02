@@ -8,8 +8,9 @@ const PASSWORD_MAX_LENGTH = 14;
 async function emailAlreadyExists(value) {
   const email = await User.findOne({ email: value });
   if (email) {
-    Promise.reject();
+    return Promise.reject();
   }
+  return Promise.resolve();
 }
 
 module.exports = [
