@@ -14,6 +14,7 @@ const {
   handleUnprocessableEntityError,
   handleServerError,
   handleUnauthorized,
+  handleForbidden,
 } = require("./controllers/error");
 const UnprocessableEntityError = require("./errors/unprocessable-entity-error");
 
@@ -65,6 +66,7 @@ app.use(handleUnprocessableEntityError);
 app.use(handleServerError);
 app.use(handleResourceNotFoundError);
 app.use(handleUnauthorized);
+app.use(handleForbidden);
 
 mongoose
   .connect(process.env.MONGO_DB_URI, {
