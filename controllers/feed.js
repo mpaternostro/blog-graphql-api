@@ -1,9 +1,12 @@
 const { validationResult } = require("express-validator");
+
 const ServerError = require("../errors/server-error");
 const ResourceNotFoundError = require("../errors/resource-not-found");
 const UnprocessableEntityError = require("../errors/unprocessable-entity-error");
+const ForbiddenError = require("../errors/forbidden");
 
 const Post = require("../models/Post");
+const User = require("../models/User");
 const clearImage = require("../utils/clearImage");
 
 const { POSTS_PER_PAGE } = require("../constants");
@@ -49,34 +52,49 @@ exports.getPost = async (req, res, next) => {
 exports.createPost = async (req, res, next) => {
   const errors = validationResult(req);
   if (!errors.isEmpty()) {
-    next(
+    return next(
       new UnprocessableEntityError("Validation failed, entered data is incorrect.", errors.array())
     );
-  } else {
-    const { title, content } = req.body;
-    if (!req.file) {
-      next(new UnprocessableEntityError("Image not provided."));
-    } else {
-      const imageUrl = req.file.path.replace("\\", "/");
-      const post = new Post({
-        title,
-        content,
-        imageUrl,
-        creator: {
-          name: "Charly",
-        },
-      });
-      try {
-        await post.save();
-        res.status(201).json({
-          message: "Post created successfully!",
-          post,
-        });
-      } catch (error) {
-        next(new ServerError(error.message));
-      }
-    }
   }
+  const { title, content } = req.body;
+  if (!req.file) {
+    return next(new UnprocessableEntityError("Image not provided."));
+  }
+  const imageUrl = req.file.path.replace("\\", "/");
+  const post = new Post({
+    title,
+    content,
+    imageUrl,
+    creator: req.userId,
+  });
+  try {
+    await post.save();
+  } catch (error) {
+    return next(new ServerError(error.message));
+  }
+  let user;
+  try {
+    user = await User.findById(req.userId);
+  } catch (error) {
+    return next(new ServerError(error.message));
+  }
+  if (!user) {
+    next(new ResourceNotFoundError("User not found."));
+  }
+  user.posts.push(post);
+  try {
+    await user.save();
+  } catch (error) {
+    return next(new ServerError(error.message));
+  }
+  return res.status(201).json({
+    message: "Post created successfully!",
+    post,
+    creator: {
+      _id: user._id,
+      name: user.name,
+    },
+  });
 };
 
 exports.updatePost = async (req, res, next) => {
@@ -96,6 +114,9 @@ exports.updatePost = async (req, res, next) => {
   }
   if (!post) {
     return next(new ResourceNotFoundError("Post not found."));
+  }
+  if (post.creator.toString() !== req.userId) {
+    return next(new ForbiddenError("Not authorized for this operation."));
   }
   post.title = title;
   post.content = content;
@@ -132,13 +153,27 @@ exports.deletePost = async (req, res, next) => {
   if (!post) {
     return next(new ResourceNotFoundError("Post not found."));
   }
+  if (post.creator.toString() !== req.userId) {
+    return next(new ForbiddenError("Not authorized for this operation."));
+  }
+  let user;
   try {
     await clearImage(post.imageUrl);
     await post.delete();
-    return res.status(200).json({
-      message: "Post deleted successfully!",
-    });
+    user = await User.findById(req.userId);
   } catch (error) {
     return next(new ServerError(error.message));
   }
+  if (!user) {
+    return next(new ResourceNotFoundError("User not found."));
+  }
+  user.posts.pull(post._id);
+  try {
+    await user.save();
+  } catch (error) {
+    return next(new ServerError(error.message));
+  }
+  return res.status(200).json({
+    message: "Post deleted successfully!",
+  });
 };

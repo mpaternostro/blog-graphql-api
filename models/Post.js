@@ -15,7 +15,8 @@ const schema = new mongoose.Schema(
       required: true,
     },
     creator: {
-      type: Object,
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "User",
       required: true,
     },
   },
