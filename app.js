@@ -9,6 +9,7 @@ const { v4: uuidv4 } = require("uuid");
 
 const feedRoutes = require("./routes/feed");
 const authRoutes = require("./routes/auth");
+const userRoutes = require("./routes/user");
 const {
   handleResourceNotFoundError,
   handleUnprocessableEntityError,
@@ -61,6 +62,7 @@ app.use((req, res, next) => {
 
 app.use("/feed", feedRoutes);
 app.use("/auth", authRoutes);
+app.use("/user", userRoutes);
 
 app.use(handleUnprocessableEntityError);
 app.use(handleServerError);
