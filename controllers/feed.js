@@ -8,6 +8,7 @@ const ForbiddenError = require("../errors/forbidden");
 const Post = require("../models/Post");
 const User = require("../models/User");
 const clearImage = require("../utils/clearImage");
+const { getIO } = require("../socket");
 
 const { POSTS_PER_PAGE } = require("../constants");
 
@@ -21,8 +22,10 @@ exports.getPosts = async (req, res, next) => {
   }
   try {
     const posts = await Post.find()
+      .populate("creator")
       .skip(POSTS_PER_PAGE * (page - 1))
-      .limit(POSTS_PER_PAGE);
+      .limit(POSTS_PER_PAGE)
+      .sort({ createdAt: -1 });
     return res.status(200).json({
       message: "Posts fetched succesfully.",
       posts,
@@ -87,6 +90,14 @@ exports.createPost = async (req, res, next) => {
   } catch (error) {
     return next(new ServerError(error.message));
   }
+  const socket = getIO();
+  socket.emit("posts", {
+    action: "create",
+    post: {
+      ...post._doc,
+      creator: { _id: req.userId, name: user.name },
+    },
+  });
   return res.status(201).json({
     message: "Post created successfully!",
     post,
@@ -108,14 +119,14 @@ exports.updatePost = async (req, res, next) => {
   const { title, content } = req.body;
   let post;
   try {
-    post = await Post.findById(postId);
+    post = await Post.findById(postId).populate("creator");
   } catch (error) {
     return next(new ServerError(error.message));
   }
   if (!post) {
     return next(new ResourceNotFoundError("Post not found."));
   }
-  if (post.creator.toString() !== req.userId) {
+  if (post.creator._id.toString() !== req.userId) {
     return next(new ForbiddenError("Not authorized for this operation."));
   }
   post.title = title;
@@ -133,13 +144,18 @@ exports.updatePost = async (req, res, next) => {
   }
   try {
     await post.save();
-    return res.status(200).json({
-      message: "Post updated successfully!",
-      post,
-    });
   } catch (error) {
     return next(new ServerError(error.message));
   }
+  const socket = getIO();
+  socket.emit("posts", {
+    action: "update",
+    post,
+  });
+  return res.status(200).json({
+    message: "Post updated successfully!",
+    post,
+  });
 };
 
 exports.deletePost = async (req, res, next) => {
@@ -173,6 +189,13 @@ exports.deletePost = async (req, res, next) => {
   } catch (error) {
     return next(new ServerError(error.message));
   }
+  const socket = getIO();
+  socket.emit("posts", {
+    action: "delete",
+    post: {
+      _id: postId,
+    },
+  });
   return res.status(200).json({
     message: "Post deleted successfully!",
   });
