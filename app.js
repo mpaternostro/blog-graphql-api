@@ -18,6 +18,7 @@ const {
   handleForbidden,
 } = require("./controllers/error");
 const UnprocessableEntityError = require("./errors/unprocessable-entity-error");
+const { init } = require("./socket");
 
 const PORT = 8080;
 
@@ -77,8 +78,10 @@ mongoose
     useCreateIndex: true,
   })
   .then(() => {
-    app.listen(PORT, async () => {
+    const server = app.listen(PORT, async () => {
       console.log(`Server listening at http://localhost:${PORT}`);
     });
+    const io = init(server);
+    io.on("connection", () => {});
   })
   .catch((error) => console.error(error));
