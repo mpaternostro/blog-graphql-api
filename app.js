@@ -6,10 +6,8 @@ const path = require("path");
 const mongoose = require("mongoose");
 const multer = require("multer");
 const { v4: uuidv4 } = require("uuid");
+const { graphqlHTTP } = require("express-graphql");
 
-const feedRoutes = require("./routes/feed");
-const authRoutes = require("./routes/auth");
-const userRoutes = require("./routes/user");
 const {
   handleResourceNotFoundError,
   handleUnprocessableEntityError,
@@ -19,6 +17,8 @@ const {
 } = require("./controllers/error");
 const UnprocessableEntityError = require("./errors/unprocessable-entity-error");
 const { init } = require("./socket");
+const schema = require("./graphql/schema");
+const resolvers = require("./graphql/resolvers");
 
 const PORT = 8080;
 
@@ -61,9 +61,26 @@ app.use((req, res, next) => {
   next();
 });
 
-app.use("/feed", feedRoutes);
-app.use("/auth", authRoutes);
-app.use("/user", userRoutes);
+app.use(
+  "/graphql",
+  graphqlHTTP({
+    schema,
+    rootValue: resolvers,
+    graphiql: true,
+    customFormatErrorFn(error) {
+      if (!error.originalError) {
+        return error;
+      }
+      const { message, errorList, code } = error.originalError;
+      return {
+        ...error,
+        message: message || error.message,
+        errorList: errorList || undefined,
+        statusCode: code || 500,
+      };
+    },
+  })
+);
 
 app.use(handleUnprocessableEntityError);
 app.use(handleServerError);
