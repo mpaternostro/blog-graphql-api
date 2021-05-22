@@ -2,11 +2,14 @@ const bcrypt = require("bcrypt");
 const jwt = require("jsonwebtoken");
 
 const User = require("../models/User");
+const Post = require("../models/Post");
 const UnprocessableEntityError = require("../errors/unprocessable-entity-error");
 const ServerError = require("../errors/server-error");
 const ResourceNotFoundError = require("../errors/resource-not-found");
 const UnauthorizedError = require("../errors/unauthorized");
 const validateCreateUser = require("../validators/createUser");
+const validateCreatePost = require("../validators/createPost");
+const { getIO } = require("../socket");
 
 module.exports = {
   createUser: async function createUser({ input }) {
@@ -66,5 +69,54 @@ module.exports = {
       return { token, userId };
     }
     return new UnauthorizedError("Password did not match.");
+  },
+  createPost: async function createPost({ input }, req) {
+    const { title, content, imageUrl } = input;
+    const errors = await validateCreatePost(input);
+    if (errors && errors.length > 0) {
+      return new UnprocessableEntityError("Validation failed, entered data is incorrect.", [
+        errors,
+      ]);
+    }
+    let user;
+    try {
+      user = await User.findById(req.userId).exec();
+    } catch (error) {
+      return new ServerError(error.message);
+    }
+    if (!user) {
+      return new ResourceNotFoundError("User not found.");
+    }
+    const post = new Post({
+      title: title.trim(),
+      content: content.trim(),
+      imageUrl,
+      creator: user,
+    });
+    try {
+      await post.save();
+    } catch (error) {
+      return new ServerError(error.message);
+    }
+    user.posts.push(post);
+    try {
+      await user.save();
+    } catch (error) {
+      return new ServerError(error.message);
+    }
+    const socket = getIO();
+    socket.emit("posts", {
+      action: "create",
+      post: {
+        ...post._doc,
+        creator: { _id: req.userId, name: user.name },
+      },
+    });
+    return {
+      ...post._doc,
+      _id: post._id.toString(),
+      createdAt: post.createdAt.toISOString(),
+      updatedAt: post.updatedAt.toISOString(),
+    };
   },
 };

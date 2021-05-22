@@ -17,6 +17,7 @@ const {
 } = require("./controllers/error");
 const UnprocessableEntityError = require("./errors/unprocessable-entity-error");
 const { init } = require("./socket");
+const auth = require("./middlewares/auth");
 const schema = require("./graphql/schema");
 const resolvers = require("./graphql/resolvers");
 
@@ -63,6 +64,8 @@ app.use((req, res, next) => {
   }
   next();
 });
+
+app.use(auth);
 
 app.use(
   "/graphql",
