@@ -1,6 +1,11 @@
 const { buildSchema } = require("graphql");
 
 module.exports = buildSchema(`
+  type AuthData {
+    token: String!
+    userId: String!
+  }
+
   type Post {
     _id: ID!
     title: String!
@@ -17,6 +22,11 @@ module.exports = buildSchema(`
     posts: [Post!]!
   }
 
+  input LoginData {
+    email: String!
+    password: String!
+  }
+
   input UserInput {
     email: String!
     name: String!
@@ -24,7 +34,7 @@ module.exports = buildSchema(`
   }
 
   type RootQuery {
-    hello: String!
+    login(input: LoginData!): AuthData
   }
 
   type RootMutation {

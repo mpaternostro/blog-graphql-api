@@ -1,15 +1,18 @@
 const bcrypt = require("bcrypt");
+const jwt = require("jsonwebtoken");
 
 const User = require("../models/User");
 const UnprocessableEntityError = require("../errors/unprocessable-entity-error");
 const ServerError = require("../errors/server-error");
+const ResourceNotFoundError = require("../errors/resource-not-found");
+const UnauthorizedError = require("../errors/unauthorized");
 const validateCreateUser = require("../validators/createUser");
 
 module.exports = {
   createUser: async function createUser({ input }) {
     const { email, password, name } = input;
     const errors = await validateCreateUser(input);
-    if (errors) {
+    if (errors && errors.length > 0) {
       return new UnprocessableEntityError("Signup failed.", [errors]);
     }
     const saltRounds = 12;
@@ -31,5 +34,37 @@ module.exports = {
       return new ServerError(error.message);
     }
     return { ...savedUser._doc, _id: savedUser._id.toString() };
+  },
+  login: async function login({ input }) {
+    const { email, password } = input;
+    let user;
+    try {
+      user = await User.findOne({ email }).exec();
+    } catch (error) {
+      return new ServerError(error.message);
+    }
+    if (!user) {
+      return new ResourceNotFoundError("User not found.");
+    }
+    const hashedPassword = user.password;
+    let isEqualPassword;
+    try {
+      isEqualPassword = await bcrypt.compare(password, hashedPassword);
+    } catch (error) {
+      return new ServerError(error.message);
+    }
+    if (isEqualPassword) {
+      const userId = user._id.toString();
+      const token = jwt.sign(
+        {
+          email,
+          userId,
+        },
+        process.env.JWT_SECRET,
+        { expiresIn: "1h" }
+      );
+      return { token, userId };
+    }
+    return new UnauthorizedError("Password did not match.");
   },
 };
