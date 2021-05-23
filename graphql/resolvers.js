@@ -10,6 +10,7 @@ const UnauthorizedError = require("../errors/unauthorized");
 const validateCreateUser = require("../validators/createUser");
 const validateCreatePost = require("../validators/createPost");
 const { getIO } = require("../socket");
+const { POSTS_PER_PAGE } = require("../constants");
 
 module.exports = {
   createUser: async function createUser({ input }) {
@@ -71,6 +72,9 @@ module.exports = {
     return new UnauthorizedError("Password did not match.");
   },
   createPost: async function createPost({ input }, req) {
+    if (!req.isAuth) {
+      return new UnauthorizedError("Not authenticated.");
+    }
     const { title, content, imageUrl } = input;
     const errors = await validateCreatePost(input);
     if (errors && errors.length > 0) {
@@ -118,5 +122,56 @@ module.exports = {
       createdAt: post.createdAt.toISOString(),
       updatedAt: post.updatedAt.toISOString(),
     };
+  },
+  posts: async function posts({ page = 1 }, req) {
+    if (!req.isAuth) {
+      return new UnauthorizedError("Not authenticated.");
+    }
+    let totalItems;
+    try {
+      totalItems = await Post.countDocuments().exec();
+    } catch (error) {
+      return new ServerError(error.message);
+    }
+    try {
+      const rawPosts = await Post.find()
+        .skip(POSTS_PER_PAGE * (page - 1))
+        .limit(POSTS_PER_PAGE)
+        .sort({ createdAt: -1 })
+        .populate("creator")
+        .exec();
+      const mappedPosts = rawPosts.map((post) => ({
+        ...post._doc,
+        _id: post._id.toString(),
+        createdAt: post.createdAt.toISOString(),
+        updatedAt: post.updatedAt.toISOString(),
+      }));
+      return {
+        posts: mappedPosts,
+        totalItems,
+      };
+    } catch (error) {
+      return new ServerError(error.message);
+    }
+  },
+  post: async function post({ id }, req) {
+    if (!req.isAuth) {
+      return new UnauthorizedError("Not authenticated.");
+    }
+    try {
+      const rawPost = await Post.findById(id).populate("creator").exec();
+      if (!rawPost) {
+        return new ResourceNotFoundError("Post not found.");
+      }
+      const mappedPost = {
+        ...rawPost._doc,
+        _id: rawPost._id.toString(),
+        createdAt: rawPost.createdAt.toISOString(),
+        updatedAt: rawPost.updatedAt.toISOString(),
+      };
+      return mappedPost;
+    } catch (error) {
+      return new ServerError(error.message);
+    }
   },
 };
