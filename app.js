@@ -20,6 +20,8 @@ const { init } = require("./socket");
 const auth = require("./middlewares/auth");
 const schema = require("./graphql/schema");
 const resolvers = require("./graphql/resolvers");
+const clearImage = require("./utils/clearImage");
+const UnauthorizedError = require("./errors/unauthorized");
 
 const PORT = 8080;
 
@@ -66,6 +68,24 @@ app.use((req, res, next) => {
 });
 
 app.use(auth);
+
+app.put("/post-image", async (req, res, next) => {
+  if (!req.isAuth) {
+    return next(new UnauthorizedError("Not authenticated."));
+  }
+  if (!req.file) {
+    return res.status(200).json({
+      message: "Image not provided.",
+    });
+  }
+  if (req.body.oldPath) {
+    await clearImage(req.body.oldPath);
+  }
+  return res.status(201).json({
+    message: "Image successfully stored.",
+    filePath: req.file.path,
+  });
+});
 
 app.use(
   "/graphql",
