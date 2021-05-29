@@ -6,10 +6,8 @@ const path = require("path");
 const mongoose = require("mongoose");
 const multer = require("multer");
 const { v4: uuidv4 } = require("uuid");
+const { graphqlHTTP } = require("express-graphql");
 
-const feedRoutes = require("./routes/feed");
-const authRoutes = require("./routes/auth");
-const userRoutes = require("./routes/user");
 const {
   handleResourceNotFoundError,
   handleUnprocessableEntityError,
@@ -19,6 +17,11 @@ const {
 } = require("./controllers/error");
 const UnprocessableEntityError = require("./errors/unprocessable-entity-error");
 const { init } = require("./socket");
+const auth = require("./middlewares/auth");
+const schema = require("./graphql/schema");
+const resolvers = require("./graphql/resolvers");
+const clearImage = require("./utils/clearImage");
+const UnauthorizedError = require("./errors/unauthorized");
 
 const PORT = 8080;
 
@@ -58,12 +61,52 @@ app.use((req, res, next) => {
   res.setHeader("Access-Control-Allow-Origin", "*");
   res.setHeader("Access-Control-Allow-Methods", "GET, POST, PUT, PATCH, DELETE");
   res.setHeader("Access-Control-Allow-Headers", "Content-Type, Authorization");
-  next();
+  if (req.method === "OPTIONS") {
+    return res.sendStatus(200);
+  }
+  return next();
 });
 
-app.use("/feed", feedRoutes);
-app.use("/auth", authRoutes);
-app.use("/user", userRoutes);
+app.use(auth);
+
+app.put("/post-image", async (req, res, next) => {
+  if (!req.isAuth) {
+    return next(new UnauthorizedError("Not authenticated."));
+  }
+  if (!req.file) {
+    return res.status(200).json({
+      message: "Image not provided.",
+    });
+  }
+  if (req.body.oldPath) {
+    await clearImage(req.body.oldPath);
+  }
+  return res.status(201).json({
+    message: "Image successfully stored.",
+    filePath: req.file.path,
+  });
+});
+
+app.use(
+  "/graphql",
+  graphqlHTTP({
+    schema,
+    rootValue: resolvers,
+    graphiql: true,
+    customFormatErrorFn(error) {
+      if (!error.originalError) {
+        return error;
+      }
+      const { message, errorList, code } = error.originalError;
+      return {
+        ...error,
+        message: message || error.message,
+        errorList: errorList || undefined,
+        statusCode: code || 500,
+      };
+    },
+  })
+);
 
 app.use(handleUnprocessableEntityError);
 app.use(handleServerError);
