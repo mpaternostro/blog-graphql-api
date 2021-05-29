@@ -223,6 +223,30 @@ module.exports = {
     });
     return { _id: id };
   },
+  updateStatus: async function updateStatus({ status }, req) {
+    if (!req.isAuth) {
+      return new UnauthorizedError("Not authenticated.");
+    }
+    let user;
+    try {
+      user = await User.findById(req.userId).exec();
+    } catch (error) {
+      return new ServerError(error.message);
+    }
+    if (!user) {
+      return new ResourceNotFoundError("User not found.");
+    }
+    user.status = status;
+    try {
+      await user.save();
+    } catch (error) {
+      return new ServerError(error.message);
+    }
+    return {
+      _id: user._id.toString(),
+      status,
+    };
+  },
   posts: async function posts({ page = 1 }, req) {
     if (!req.isAuth) {
       return new UnauthorizedError("Not authenticated.");
@@ -273,5 +297,23 @@ module.exports = {
     } catch (error) {
       return new ServerError(error.message);
     }
+  },
+  user: async function user(_, req) {
+    if (!req.isAuth) {
+      return new UnauthorizedError("Not authenticated.");
+    }
+    let userDoc;
+    try {
+      userDoc = await User.findById(req.userId);
+    } catch (error) {
+      return new ServerError(error.message);
+    }
+    if (!user) {
+      return new ResourceNotFoundError("User not found.");
+    }
+    return {
+      ...userDoc._doc,
+      _id: userDoc._id.toString(),
+    };
   },
 };
