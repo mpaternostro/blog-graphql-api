@@ -7,10 +7,13 @@ const UnprocessableEntityError = require("../errors/unprocessable-entity-error")
 const ServerError = require("../errors/server-error");
 const ResourceNotFoundError = require("../errors/resource-not-found");
 const UnauthorizedError = require("../errors/unauthorized");
+const ForbiddenError = require("../errors/forbidden");
 const validateCreateUser = require("../validators/createUser");
 const validateCreatePost = require("../validators/createPost");
+const validateUpdatePost = require("../validators/updatePost");
 const { getIO } = require("../socket");
 const { POSTS_PER_PAGE } = require("../constants");
+const clearImage = require("../utils/clearImage");
 
 module.exports = {
   createUser: async function createUser({ input }) {
@@ -94,7 +97,7 @@ module.exports = {
     const post = new Post({
       title: title.trim(),
       content: content.trim(),
-      imageUrl,
+      imageUrl: imageUrl.replace("\\", "/"),
       creator: user,
     });
     try {
@@ -122,6 +125,103 @@ module.exports = {
       createdAt: post.createdAt.toISOString(),
       updatedAt: post.updatedAt.toISOString(),
     };
+  },
+  updatePost: async function updatePost({ input, id }, req) {
+    if (!req.isAuth) {
+      return new UnauthorizedError("Not authenticated.");
+    }
+    const { title, content, imageUrl } = input;
+    const errors = await validateUpdatePost(input, id);
+    if (errors && errors.length > 0) {
+      return new UnprocessableEntityError("Validation failed, entered data is incorrect.", [
+        errors,
+      ]);
+    }
+    let post;
+    try {
+      post = await Post.findById(id).populate("creator").exec();
+    } catch (error) {
+      return new ServerError(error.message);
+    }
+    if (!post) {
+      return new ResourceNotFoundError("Post not found.");
+    }
+    if (post.creator._id.toString() !== req.userId) {
+      return new ForbiddenError("Not authorized for this operation.");
+    }
+    post.title = title;
+    post.content = content;
+    if (imageUrl) {
+      post.imageUrl = imageUrl.replace("\\", "/");
+    }
+    if (!post.imageUrl) {
+      return new UnprocessableEntityError("Image not provided.", errors.array());
+    }
+    try {
+      await post.save();
+    } catch (error) {
+      return new ServerError(error.message);
+    }
+    const socket = getIO();
+    socket.emit("posts", {
+      action: "update",
+      post,
+    });
+    return {
+      ...post._doc,
+      _id: post._id.toString(),
+      createdAt: post.createdAt.toISOString(),
+      updatedAt: post.updatedAt.toISOString(),
+    };
+  },
+  deletePost: async function deletePost({ id }, req) {
+    if (!req.isAuth) {
+      return new UnauthorizedError("Not authenticated.");
+    }
+    if (!id) {
+      return new ResourceNotFoundError("Post ID not provided.");
+    }
+    let post;
+    try {
+      post = await Post.findById(id).exec();
+    } catch (error) {
+      return new ServerError(error.message);
+    }
+    if (!post) {
+      return new ResourceNotFoundError("Post not found.");
+    }
+    if (post.creator.toString() !== req.userId) {
+      return new ForbiddenError("Not authorized for this operation.");
+    }
+    let user;
+    try {
+      await clearImage(post.imageUrl);
+      await post.delete();
+      user = await User.findById(req.userId).exec();
+    } catch (error) {
+      return new ServerError(error.message);
+    }
+    if (!user) {
+      return new ResourceNotFoundError("User not found.");
+    }
+    try {
+      await user.posts.pull(id);
+    } catch (error) {
+      return new ServerError(error.message);
+    }
+    try {
+      await user.save();
+    } catch (error) {
+      return new ServerError(error.message);
+    }
+    const socket = getIO();
+    socket.emit("posts", {
+      action: "delete",
+      post: {
+        _id: id,
+      },
+    });
+    return { _id: id };
   },
   posts: async function posts({ page = 1 }, req) {
     if (!req.isAuth) {
