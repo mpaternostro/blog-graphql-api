@@ -4,7 +4,7 @@
   "description": "Este proyecto está basado en el proyecto API REST del [curso de Maximilian Schwarzmüller para Node.js](https://www.udemy.com/course/nodejs-the-complete-guide/).",
   "main": "index.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1",
+    "test": "mocha",
     "start": "nodemon app.js"
   },
   "repository": {
@@ -33,11 +33,15 @@
     "validator": "^13.6.0"
   },
   "devDependencies": {
+    "chai": "^4.3.4",
     "eslint": "^7.24.0",
     "eslint-config-airbnb-base": "^14.2.1",
     "eslint-config-prettier": "^8.1.0",
     "eslint-plugin-import": "^2.22.1",
     "eslint-plugin-prettier": "^3.3.1",
-    "prettier": "^2.2.1"
+    "mocha": "^8.4.0",
+    "mongodb-memory-server": "^6.9.6",
+    "prettier": "^2.2.1",
+    "sinon": "^11.1.1"
   }
 }
